@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="./icon.png" alt="Ollama Chat & Actions Module" title="Ollama Chat Module Icon">
-</p>
-
 # AzerothCore + Playerbots Module: mod-ollama-actions
 
 > **Note:** This is a fork and enhancement of the original [mod-ollama-chat by DustinHendrickson](https://github.com/DustinHendrickson/mod-ollama-chat). While the original module focused solely on generating immersive chat responses using local LLMs, this modification adds **Natural Language Action Commands**, allowing playerbots to intelligently understand your intent and execute commands (like attacking, casting specific spells, or trading) based on natural conversational cues.
@@ -25,7 +21,7 @@
 
 ***mod-ollama-actions*** transforms your AzerothCore Playerbots from static scripted followers into intelligent companions! By integrating an external language model (LLM) via the Ollama API, bots can now not only hold dynamic, in-character conversations, but also interpret your natural speech to execute appropriate in-game commands.
 
-Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you have to trade"*, and the LLM will map your request into backend actions (Attack, Cast, Trade, etc.) while responding with flavor text that matches its unique personality.
+Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you have to trade"*, and the LLM will map your request into backend actions (Attack, Cast, Trade, etc.).
 
 ## Key Features
 
@@ -75,10 +71,7 @@ Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you 
 
 3. **Recompile AzerothCore:**
    ```bash
-   cd /path/to/azerothcore
-   mkdir build && cd build
-   cmake ..
-   make -j$(nproc)
+   cd /path/to/azerothcore && make -j$(nproc) && make install
    ```
 
 4. **Configuration:**
