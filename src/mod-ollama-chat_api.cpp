@@ -65,7 +65,7 @@ static std::string StripThinkSections(const std::string& response)
 }
 
 // Function to perform the API call.
-std::string QueryOllamaAPI(const std::string& prompt)
+std::string QueryOllamaAPI(const std::string& prompt, const std::string& systemOverride)
 {
     // Initialize our custom HTTP client
     static OllamaHttpClient httpClient;
@@ -159,10 +159,10 @@ std::string QueryOllamaAPI(const std::string& prompt)
         if (!stopSeqs.empty())
             requestData["stop"] = stopSeqs;
     }
-    if (!g_OllamaSystemPrompt.empty())
     {
-        // Sanitize system prompt as well
-        requestData["system"] = SanitizeUTF8(g_OllamaSystemPrompt);
+        std::string effectiveSystem = systemOverride.empty() ? g_OllamaSystemPrompt : systemOverride;
+        if (!effectiveSystem.empty())
+            requestData["system"] = SanitizeUTF8(effectiveSystem);
     }
 
     if (g_ThinkModeEnableForModule)
@@ -283,7 +283,7 @@ bool IsValidAPIResponse(const std::string& response)
 QueryManager g_queryManager;
 
 // Interface function to submit a query.
-std::future<std::string> SubmitQuery(const std::string& prompt)
+std::future<std::string> SubmitQuery(const std::string& prompt, const std::string& systemOverride)
 {
-    return g_queryManager.submitQuery(prompt);
+    return g_queryManager.submitQuery(prompt, systemOverride);
 }

@@ -10,6 +10,8 @@
 #include <fstream>
 
 
+std::string g_BotCommandsFileContent = "";
+
 // --------------------------------------------
 // Distance/Range Configuration
 // --------------------------------------------
@@ -69,6 +71,7 @@ bool        g_EnableRPPersonalities           = false;
 bool        g_EnableWhisperReplies            = false;
 bool        g_DebugEnabled                    = false;
 bool        g_DebugShowFullPrompt             = false;
+std::string g_BotCommandsPath                 = "";
 
 // --------------------------------------------
 // Think Mode Support
@@ -373,6 +376,24 @@ std::string GetMultiLineConfigValue(const std::string& configFilePath, const std
 
 void LoadOllamaChatConfig()
 {
+    g_BotCommandsPath = sConfigMgr->GetOption<std::string>("OllamaChat.BotCommandsPath", "");
+    if (!g_BotCommandsPath.empty())
+    {
+        std::ifstream file(g_BotCommandsPath);
+        if (file.is_open())
+        {
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            g_BotCommandsFileContent = buffer.str();
+            LOG_INFO("server.loading", "[Ollama Chat] Loaded bot commands from {}", g_BotCommandsPath);
+        }
+        else
+        {
+            LOG_ERROR("server.loading", "[Ollama Chat] Failed to load bot commands from {}", g_BotCommandsPath);
+            g_BotCommandsFileContent = "";
+        }
+    }
+
     g_SayDistance                     = sConfigMgr->GetOption<float>("OllamaChat.SayDistance", 30.0f);
     g_YellDistance                    = sConfigMgr->GetOption<float>("OllamaChat.YellDistance", 100.0f);
     
@@ -409,6 +430,8 @@ void LoadOllamaChatConfig()
 
     g_DebugEnabled                    = sConfigMgr->GetOption<bool>("OllamaChat.DebugEnabled", false);
     g_DebugShowFullPrompt             = sConfigMgr->GetOption<bool>("OllamaChat.DebugShowFullPrompt", false);
+
+    g_BotCommandsPath                 = sConfigMgr->GetOption<std::string>("OllamaChat.BotCommandsPath", "");
 
     g_MinRandomInterval               = sConfigMgr->GetOption<uint32_t>("OllamaChat.MinRandomInterval", 45);
     g_MaxRandomInterval               = sConfigMgr->GetOption<uint32_t>("OllamaChat.MaxRandomInterval", 180);

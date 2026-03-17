@@ -7,21 +7,22 @@
 #include <queue>
 #include <thread>
 
-std::string QueryOllamaAPI(const std::string& prompt);
+std::string QueryOllamaAPI(const std::string& prompt, const std::string& systemOverride = "");
 
 class QueryManager {
 public:
     QueryManager();
     void setMaxConcurrentQueries(int maxQueries);
-    std::future<std::string> submitQuery(const std::string& prompt);
+    std::future<std::string> submitQuery(const std::string& prompt, const std::string& systemOverride = "");
 
 private:
     struct QueryTask {
         std::string prompt;
+        std::string systemOverride;
         std::promise<std::string> promise;
     };
 
-    void processQuery(const std::string& prompt, std::promise<std::string> promise);
+    void processQuery(const std::string& prompt, const std::string& systemOverride, std::promise<std::string> promise);
 
     int maxConcurrentQueries; // 0 means no limit
     int currentQueries;

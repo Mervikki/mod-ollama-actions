@@ -59,7 +59,8 @@ static std::string GenerateBotPrompt(Player* bot, std::string playerMessage, Pla
 static void AppendBotConversation(uint64_t botGuid, uint64_t playerGuid, const std::string& playerMessage, const std::string& botReply);
 static bool ExecutePlayerbotCommand(Player* bot, Player* commandInitiator,
     NaturalCommand cmd, std::string const& argument = "", std::string const& castTargetHint = "",
-    std::string const& attackTargetHint = "", ChatChannelSourceLocal sourceLocal = SRC_UNDEFINED_LOCAL);
+    std::string const& attackTargetHint = "", ChatChannelSourceLocal sourceLocal = SRC_UNDEFINED_LOCAL,
+    std::string const& rawCommand = "");
 static void QueueBotRepliesForCandidates(std::vector<ObjectGuid> const& botGuids,
     ObjectGuid senderGuid, std::string const& msg, ChatChannelSourceLocal sourceLocal,
     uint32 channelId, std::string const& channelName);
@@ -74,7 +75,8 @@ enum class NaturalCommand {
     AVOID_AOE,
     AVOID_AOE_OFF,
     TRADE,
-    CAST
+    CAST,
+    GENERIC
 };
 
 struct ParsedNaturalCommand
@@ -83,6 +85,7 @@ struct ParsedNaturalCommand
     std::string argument;
     std::string castTarget;
     std::string attackTarget;
+    std::string rawCommand;
 };
 
 static std::string TrimWhitespace(std::string value)
@@ -672,6 +675,20 @@ static ParsedNaturalCommand ParseCommandFromLLM(const std::string& llmResponse)
         parseAttackPayload(response.substr(7), parsed);
         return parsed;
     }
+
+    if (responseLower.rfind("command:", 0) == 0)
+    {
+        parsed.command = NaturalCommand::GENERIC;
+        parsed.rawCommand = TrimWhitespace(response.substr(8));
+        return parsed;
+    }
+    
+    if (responseLower.rfind("command ", 0) == 0)
+    {
+        parsed.command = NaturalCommand::GENERIC;
+        parsed.rawCommand = TrimWhitespace(response.substr(8));
+        return parsed;
+    }
     
     // Simple parsing - look for command keywords in the LLM response
     if (ContainsWholeWordCaseInsensitive(response, "follow")) parsed.command = NaturalCommand::FOLLOW;
@@ -694,21 +711,33 @@ static ParsedNaturalCommand ParseCommandFromLLM(const std::string& llmResponse)
     return parsed;
 }
 
-static std::string GenerateCommandExtractionPrompt(const std::string& playerMessage)
+static std::string GenerateCommandExtractionSystem()
 {
+    if (g_BotCommandsFileContent.empty())
+        return "";
+
+    return "You map player requests to bot commands. Extended commands:\n\n"
+           "--- BOT COMMANDS ---\n" + g_BotCommandsFileContent + "\n--------------------\n"
+           "If the request matches an extended command, respond exactly as COMMAND:<command_string> (e.g. COMMAND: formation line).";
+}
+
+static std::string GenerateCommandExtractionPrompt(const std::string& playerMessage, bool extended)
+{
+    if (extended)
+    {
+        return SafeFormat(
+            "The player just said: \"{}\"\n\n"
+            "Determine which extended bot command best matches the request. "
+            "Respond exactly as COMMAND:<command_string>. If nothing matches, respond NONE. Do not explain.",
+            playerMessage
+        );
+    }
     return SafeFormat(
         "The player just said: \"{}\"\n\n"
-        "Based on this message, determine what action command the player is asking the bot to perform. "
-        "Available commands are: FOLLOW, STAY, ATTACK (to engage/pull an enemy, usually the player's selected target), FLEE (retreat/run to leader), AVOID_AOE (enable avoid aoe movement strategy), AVOID_AOE_OFF (disable avoid aoe movement strategy), TRADE (open trade), CAST (to use magic/abilities), or NONE (if no command is being given).\n\n"
-        "If it is a cast request, respond exactly as CAST:<spell name>|<target>. "
-        "Use target values like me, you, target, bot target, moon, skull, star, or a character/creature name. "
-        "If no specific target is requested, use target. "
-        "Example: CAST:Flash Heal|me or CAST:Fireball|target. "
-        "If it is an attack request with an explicit target, respond as ATTACK:<target>. "
-        "Example: ATTACK:skull or ATTACK:moon. If no explicit target is provided, respond ATTACK. "
-        "Map phrases like 'pull' or 'engage' to ATTACK. "
-        "Map phrases like 'normal aoe' or 'stop avoiding aoe' to AVOID_AOE_OFF. "
-        "For other commands, respond with only FOLLOW, STAY, ATTACK, FLEE, AVOID_AOE, AVOID_AOE_OFF, TRADE, or NONE. Do not explain.",
+        "Determine what action to perform.\n"
+        "Cast request: CAST:<spell name>|<target>. Targets: me, you, target, bot target, moon, skull, star, or a name. Default target: target. Example: CAST:Flash Heal|me\n"
+        "Attack request: ATTACK:<target> or just ATTACK. Example: ATTACK:skull\n"
+        "Otherwise respond with only: FOLLOW, STAY, ATTACK, FLEE, AVOID_AOE, AVOID_AOE_OFF, TRADE, or NONE. Do not explain.",
         playerMessage
     );
 }
@@ -859,7 +888,7 @@ void ProcessPendingNaturalCommandResults()
                     continue;
 
                 if (ExecutePlayerbotCommand(bot, senderPtr, item.detectedCmd, item.parsedCommand.argument,
-                        castTargetHint, item.parsedCommand.attackTarget, item.sourceLocal))
+                        castTargetHint, item.parsedCommand.attackTarget, item.sourceLocal, item.parsedCommand.rawCommand))
                     executedCount++;
             }
 
@@ -1526,7 +1555,8 @@ static bool ExecutePlayerbotCommand(Player* bot, Player* commandInitiator,
                                     std::string const& castSpellName,
                                     std::string const& castTargetHint,
                                     std::string const& attackTargetHint,
-                                    ChatChannelSourceLocal sourceLocal)
+                                    ChatChannelSourceLocal sourceLocal,
+                                    std::string const& rawCommand)
 {
     if (!bot || !commandInitiator || cmd == NaturalCommand::NONE)
         return false;
@@ -1562,6 +1592,9 @@ static bool ExecutePlayerbotCommand(Player* bot, Player* commandInitiator,
         case NaturalCommand::TRADE:
             command = "t";
             listInventoryBeforeTrade = true;
+            break;
+        case NaturalCommand::GENERIC:
+            command = rawCommand;
             break;
         case NaturalCommand::CAST:
         {
@@ -3413,17 +3446,15 @@ void PlayerBotChatHandler::ProcessChat(Player* player, uint32_t /*type*/, uint32
             if (g_DebugEnabled)
                 LOG_INFO("server.loading", "[Ollama Chat] EXTRACTING_COMMAND(async): player_message='{}'", msg);
 
-            std::string commandExtractionPrompt = GenerateCommandExtractionPrompt(msg);
-
+            // Pass 1: lightweight query with no extended commands
+            std::string simplePrompt = GenerateCommandExtractionPrompt(msg, false);
             if (g_DebugEnabled)
-                LOG_INFO("server.loading", "[Ollama Chat] SUBMITTING_TO_LLM(async): prompt='{}'", commandExtractionPrompt);
+                LOG_INFO("server.loading", "[Ollama Chat] SUBMITTING_TO_LLM(async): prompt='{}'", simplePrompt);
 
             try {
-                auto commandFuture = SubmitQuery(commandExtractionPrompt);
+                auto commandFuture = SubmitQuery(simplePrompt);
                 if (commandFuture.valid())
                 {
-                    if (g_DebugEnabled)
-                        LOG_INFO("server.loading", "[Ollama Chat] WAITING_FOR_LLM_RESPONSE(async)");
                     std::string llmResponse = commandFuture.get();
                     if (g_DebugEnabled)
                         LOG_INFO("server.loading", "[Ollama Chat] LLM_RESPONSE(async): '{}'", llmResponse);
@@ -3432,6 +3463,29 @@ void PlayerBotChatHandler::ProcessChat(Player* player, uint32_t /*type*/, uint32
                     {
                         parsedCommand = ParseCommandFromLLM(llmResponse);
                         detectedCmd = parsedCommand.command;
+                    }
+                }
+
+                // Pass 2: only if no command was found and extended commands are available
+                if (detectedCmd == NaturalCommand::NONE && !g_BotCommandsFileContent.empty())
+                {
+                    if (g_DebugEnabled)
+                        LOG_INFO("server.loading", "[Ollama Chat] COMMAND_PASS2: no simple command found, trying extended commands");
+
+                    std::string extPrompt = GenerateCommandExtractionPrompt(msg, true);
+                    std::string extSystem = GenerateCommandExtractionSystem();
+                    auto extFuture = SubmitQuery(extPrompt, extSystem);
+                    if (extFuture.valid())
+                    {
+                        std::string extResponse = extFuture.get();
+                        if (g_DebugEnabled)
+                            LOG_INFO("server.loading", "[Ollama Chat] LLM_RESPONSE_EXTENDED(async): '{}'", extResponse);
+
+                        if (!extResponse.empty())
+                        {
+                            parsedCommand = ParseCommandFromLLM(extResponse);
+                            detectedCmd = parsedCommand.command;
+                        }
                     }
                 }
             }

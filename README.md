@@ -33,6 +33,11 @@ Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you 
   - **Cast Spells** (dynamically determines the spell and target, e.g., "Cast Flash Heal on me")
   - **Toggle AoE Avoidance**
   - **Open Trade**
+
+- **Extensible Command List (`bot_commands.txt`):**  
+  You can provide an external command list file to teach the LLM additional Playerbot command mappings (for example formations, strategies, loot rules, and utility commands) without writing new C++ handlers for each command.
+  - Commands from this list are parsed as `COMMAND:<raw playerbot command>`.
+  - Core fast-path commands (follow/stay/attack/cast/trade/aoe/flee) are detected first; the extended command list is only consulted as a fallback.
   
 - **Context-Aware Prompt Generation:**  
   The module gathers extensive context about both the bot and the interacting player—including class, race, role, faction, guild, and more.
@@ -79,6 +84,23 @@ Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you 
    ```bash
    cp /path/to/azerothcore/modules/mod-ollama-chat/conf/mod_ollama_chat.conf.dist /path/to/azerothcore/env/dist/etc/mod_ollama_chat.conf
    ```
+
+5. **Optional: Add an Extended Command List**
+   - Create a command list file in your server install, for example:
+     - `/path/to/server/data/bot_commands.txt`
+   - Set the config value in `mod_ollama_chat.conf`:
+     ```ini
+     OllamaChat.BotCommandsPath = "../data/bot_commands.txt"
+     ```
+   - Recommended format per line:
+     ```text
+     command | intent tags | short meaning
+     ```
+     Example:
+     ```text
+     co +avoid aoe | movement defensive aoe | avoid harmful area effects
+     formation line | formation spread positioning | arrange bots in a line
+     ```
 
 ## Setting up Ollama Server
 

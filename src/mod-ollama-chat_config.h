@@ -10,6 +10,8 @@
 #include <ctime>
 #include "ScriptMgr.h"  // Ensure WorldScript is defined
 
+extern std::string g_BotCommandsFileContent;
+
 // --------------------------------------------
 // Distance/Range Configuration
 // --------------------------------------------
@@ -69,6 +71,7 @@ extern bool        g_EnableRPPersonalities;
 extern bool        g_EnableWhisperReplies;
 extern bool        g_DebugEnabled;
 extern bool        g_DebugShowFullPrompt;
+extern std::string g_BotCommandsPath;
 
 // --------------------------------------------
 // Random Chatter Timing

@@ -8,6 +8,11 @@
 # CORE MODULE TOGGLES & DEBUGGING
 # --------------------------------------------
 
+# OllamaChat.BotCommandsPath
+#     Description: The path to the text file containing the bot commands (for LLM context).
+#     Default:     "../data/bot_commands.txt"
+OllamaChat.BotCommandsPath = "../data/bot_commands.txt"
+
 # OllamaChat.Enable
 #     Description: Enable or disable the module.
 #     Default:     1 (true)
@@ -18,7 +23,7 @@ OllamaChat.Enable = 1
 #                  When set to 1 (true), detailed debug information will be logged by the module.
 #                  When set to 0 (false), only standard logging is used.
 #     Default:     0 (false)
-OllamaChat.DebugEnabled = 0
+OllamaChat.DebugEnabled = 1
 
 # OllamaChat.DebugShowFullPrompt
 
@@ -90,7 +95,7 @@ OllamaChat.RepeatPenalty = 1.1
 #                  Example for Llama-3 8B: 8192. For 70B: 8192/32768.
 #     Example:     OllamaChat.NumCtx = 4096
 #     Default:     0
-OllamaChat.NumCtx = 0
+OllamaChat.NumCtx = 8192
 
 # OllamaChat.NumThreads
 #     Description: Maximum number of threads the model should use to compute the request.
