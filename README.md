@@ -25,7 +25,7 @@ Tell a bot, *"Pull that group!"*, *"Heal me quickly!"*, or *"Let's see what you 
 
 ## Key Features
 
-- **Natural Language Bot Actions (NEW!):**  
+- **Natural Language Bot Actions:**  
   Bots analyze your chat messages to determine intent. Without needing strict prefixes or syntax, you can ask bots to:
   - **Follow / Stay**
   - **Attack** (can resolve specific targets like "skull" or "moon")
